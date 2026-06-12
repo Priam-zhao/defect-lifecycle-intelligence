@@ -290,10 +290,18 @@ Planned Capabilities:
 
 - [x] Project initialized
 - [x] GitHub repository created
-- [ ] Architecture implementation
-- [ ] MCP server setup
-- [ ] Agent development
-- [ ] Knowledge store integration
+- [x] Architecture implementation (v4.0)
+- [x] MCP server setup
+- [x] Agent definitions (Fact, Review, Advisor, Orchestrator)
+- [x] Skill definitions (defect-extract, defect-review, defect-advise, defect-analyze, defect-batch)
+- [x] Claude Code integration
+- [ ] Integration testing
+- [ ] JIRA real data connection
+
+## Key Decisions
+
+- **Agent vs Skill**: Skill 是命令入口，Agent 是执行者，MCP 是数据源
+- **架构关系**: 用户 → Skill → Agent → MCP
 
 ---
 

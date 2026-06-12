@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "defect-lifecycle": {
+      "command": "python",
+      "args": ["${workspaceFolder}/mcp-server/server.py"],
+      "env": {
+        "JIRA_URL": "https://lenovo.atlassian.net",
+        "JIRA_EMAIL": "${env:JIRA_EMAIL}",
+        "JIRA_API_TOKEN": "${env:JIRA_API_TOKEN}"
+      }
+    }
+  },
+  "permissions": {
+    "allow": ["*"],
+    "deny": []
+  }
+}

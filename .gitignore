@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Knowledge Store (runtime data)
+knowledge_store/*.json
+!knowledge_store/*.jsonl
+
+# Test
+.pytest_cache/
+.coverage
+htmlcov/

@@ -1,0 +1,206 @@
+{
+  "version": "1.0.0",
+  "description": "Rule Engine Configuration - Defect Lifecycle Intelligence Agent",
+  "last_updated": "2026-06-11",
+
+  "limitation_rules": [
+    {
+      "rule_id": "LIM-001",
+      "name": "Blocker/Critical 必须修复",
+      "description": "Blocker 和 Critical 级别的缺陷必须修复，不能申请 Limitation",
+      "condition": {
+        "field": "severity",
+        "operator": "in",
+        "value": ["Blocker", "Critical"]
+      },
+      "decision": "MUST_FIX_BLOCKER",
+      "confidence_threshold": 0.90,
+      "evidence_required": ["customer_visibility", "root_cause_analysis"],
+      "priority": 1
+    },
+    {
+      "rule_id": "LIM-002",
+      "name": "临时限制最大时长",
+      "description": "临时限制最长 90 天，超过必须修复或转为永久限制",
+      "condition": {
+        "field": "active_weeks",
+        "operator": ">",
+        "value": 12.86
+      },
+      "decision": "MUST_FIX_BLOCKER",
+      "confidence_threshold": 0.85,
+      "evidence_required": ["customer_impact"],
+      "priority": 1
+    },
+    {
+      "rule_id": "LIM-003",
+      "name": "临时限制资格判定",
+      "description": "满足以下条件可申请临时限制：客户影响存在、有解决方案、不产生回归",
+      "condition": {
+        "and": [
+          {"field": "evidence.customer_impact", "operator": "exists"},
+          {"field": "evidence.workaround_exists", "operator": "exists"},
+          {"field": "evidence.no_regression", "operator": "exists"},
+          {"field": "severity", "operator": "not_in", "value": ["Blocker", "Critical"]}
+        ]
+      },
+      "decision": "TEMP_LIMITATION_ELIGIBLE",
+      "confidence_threshold": 0.80,
+      "evidence_required": ["customer_impact", "workaround_exists", "no_regression"],
+      "priority": 2
+    },
+    {
+      "rule_id": "LIM-004",
+      "name": "永久限制资格判定",
+      "description": "满足以下条件可申请永久限制：客户影响、根因分析完整、测试覆盖充分",
+      "condition": {
+        "and": [
+          {"field": "evidence.customer_impact", "operator": "exists"},
+          {"field": "evidence.root_cause_analysis", "operator": "exists"},
+          {"field": "evidence.test_coverage", "operator": "exists"},
+          {"field": "severity", "operator": "not_in", "value": ["Blocker", "Critical"]}
+        ]
+      },
+      "decision": "PERM_LIMITATION_ELIGIBLE",
+      "confidence_threshold": 0.75,
+      "evidence_required": ["customer_impact", "root_cause_analysis", "test_coverage"],
+      "priority": 2
+    },
+    {
+      "rule_id": "LIM-005",
+      "name": "长期未解决缺陷需要 SSR B 审查",
+      "description": "活跃超过 6 周的缺陷需要 SSR B 级别审查",
+      "condition": {
+        "field": "active_weeks",
+        "operator": ">",
+        "value": 6
+      },
+      "decision": "CRITICAL_SSRB_REVIEW",
+      "confidence_threshold": 0.85,
+      "evidence_required": ["customer_impact", "reproduction_steps"],
+      "priority": 3
+    }
+  ],
+
+  "closure_rules": [
+    {
+      "rule_id": "CLS-001",
+      "name": "无效关闭请求",
+      "description": "Active 状态的缺陷不能直接关闭",
+      "condition": {
+        "and": [
+          {"field": "status", "operator": "in", "value": ["Open", "Investigate", "Working", "In Progress"]},
+          {"field": "resolution", "operator": "not_in", "value": ["Fixed", "Cannot Reproduce", "Not a Bug", "Won't Fix"]}
+        ]
+      },
+      "decision": "INVALID_CLOSURE_REQUEST",
+      "confidence_threshold": 0.95,
+      "priority": 1
+    },
+    {
+      "rule_id": "CLS-002",
+      "name": "需要验证才能关闭",
+      "description": "Fixed 状态的缺陷需要 QA 验证后才能关闭",
+      "condition": {
+        "field": "status",
+        "operator": "==",
+        "value": "Fixed"
+      },
+      "decision": "NEED_VERIFICATION",
+      "confidence_threshold": 0.90,
+      "priority": 2
+    }
+  ],
+
+  "evidence_requirements": {
+    "TEMP_LIMITATION_ELIGIBLE": [
+      {
+        "type": "customer_impact",
+        "description": "客户影响说明",
+        "required": true,
+        "weight": 0.4
+      },
+      {
+        "type": "workaround_exists",
+        "description": "存在绕过方案",
+        "required": true,
+        "weight": 0.3
+      },
+      {
+        "type": "no_regression",
+        "description": "不产生回归",
+        "required": true,
+        "weight": 0.3
+      }
+    ],
+    "PERM_LIMITATION_ELIGIBLE": [
+      {
+        "type": "customer_impact",
+        "description": "客户影响说明",
+        "required": true,
+        "weight": 0.35
+      },
+      {
+        "type": "root_cause_analysis",
+        "description": "根因分析",
+        "required": true,
+        "weight": 0.35
+      },
+      {
+        "type": "test_coverage",
+        "description": "测试覆盖说明",
+        "required": true,
+        "weight": 0.30
+      }
+    ],
+    "MUST_FIX_BLOCKER": [
+      {
+        "type": "customer_visibility",
+        "description": "客户可见性证明",
+        "required": true,
+        "weight": 0.5
+      },
+      {
+        "type": "root_cause_analysis",
+        "description": "根因分析",
+        "required": true,
+        "weight": 0.5
+      }
+    ],
+    "CRITICAL_SSRB_REVIEW": [
+      {
+        "type": "customer_impact",
+        "description": "客户影响说明",
+        "required": true,
+        "weight": 0.5
+      },
+      {
+        "type": "reproduction_steps",
+        "description": "复现步骤",
+        "required": true,
+        "weight": 0.5
+      }
+    ]
+  },
+
+  "confidence_thresholds": {
+    "high": 0.90,
+    "medium": 0.75,
+    "low": 0.75
+  },
+
+  "similarity_thresholds": {
+    "strong_match": 0.90,
+    "related_match": 0.70,
+    "reference_match": 0.50
+  },
+
+  "action_priority_mapping": {
+    "MUST_FIX_BLOCKER": "high",
+    "TEMP_LIMITATION_ELIGIBLE": "medium",
+    "PERM_LIMITATION_ELIGIBLE": "medium",
+    "CRITICAL_SSRB_REVIEW": "high",
+    "INVALID_CLOSURE_REQUEST": "high",
+    "INSUFFICIENT_EVIDENCE": "medium"
+  }
+}

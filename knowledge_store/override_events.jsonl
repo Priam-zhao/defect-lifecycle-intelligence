@@ -1,0 +1,2 @@
+{"defect_id": "OBMC-17994", "system_decision": "TEMP_LIMITATION_ELIGIBLE", "human_decision": "MUST_FIX_BLOCKER", "reason": "Customer-visible performance impact", "reviewer": "Senior PE", "timestamp": "2026-06-11T16:24:55.911132"}
+{"defect_id": "OBMC-17994", "system_decision": "TEMP_LIMITATION_ELIGIBLE", "human_decision": "MUST_FIX_BLOCKER", "reason": "Customer-visible performance impact", "reviewer": "Senior PE", "timestamp": "2026-06-11T16:27:35.406077"}
