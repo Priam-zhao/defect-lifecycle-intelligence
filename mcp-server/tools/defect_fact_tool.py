@@ -18,6 +18,7 @@ from .schemas import (
     DefectFact, Timeline, CloneInfo, Evidence, StatusChange,
     ConfidenceLevel, BatchExtractionResult
 )
+from .limitation_tool import LimitationTool
 
 load_env()
 
@@ -38,6 +39,13 @@ class DefectFactTool:
         self.jira_url = os.getenv("JIRA_URL", "")
         self.jira_pat = os.getenv("JIRA_PAT", "")
         self._client = None
+        self._limitation_tool = None
+
+    def _get_limitation_tool(self):
+        """获取 LimitationTool 实例（懒加载）"""
+        if self._limitation_tool is None:
+            self._limitation_tool = LimitationTool()
+        return self._limitation_tool
 
     def _get_client(self):
         """获取 JIRA 客户端（懒加载）"""
@@ -126,6 +134,7 @@ class DefectFactTool:
                         timeline=Timeline(**fact_dict["timeline"]),
                         clone_info=CloneInfo(**fact_dict["clone_info"]),
                         evidence=Evidence(**fact_dict["evidence"]),
+                        limitation=fact_dict.get("limitation"),
                         tci=fact_dict.get("tci", 0.0),
                         pfi=fact_dict.get("pfi", 0.0),
                         confidence=fact_dict.get("confidence", 0.0),
@@ -168,6 +177,9 @@ class DefectFactTool:
         # 构建证据
         evidence = self._build_evidence(issue)
 
+        # 提取 limitation 信息
+        limitation_info = self._extract_limitation_info(issue)
+
         # 计算置信度（基于数据完整性）
         confidence = self._calculate_confidence(issue, evidence)
 
@@ -190,6 +202,7 @@ class DefectFactTool:
             "timeline": timeline,
             "clone_info": clone_info,
             "evidence": evidence,
+            "limitation": limitation_info,
             "confidence": confidence,
             "retrieved_at": datetime.now().isoformat()
         }
@@ -370,6 +383,11 @@ class DefectFactTool:
 
         return evidence
 
+    def _extract_limitation_info(self, issue) -> Dict[str, Any]:
+        """提取 limitation 信息"""
+        limitation_tool = self._get_limitation_tool()
+        return limitation_tool.extract_limitation_info(issue.key)
+
     def _calculate_confidence(self, issue, evidence: Dict[str, Any]) -> float:
         """
         计算数据置信度
@@ -468,6 +486,19 @@ class DefectFactTool:
                 "test_coverage": None,
                 "customer_visibility": None
             },
+            "limitation": {
+                "defect_id": defect_id,
+                "is_in_limitation": False,
+                "limitation_type": None,
+                "limitation_start": None,
+                "limitation_end": None,
+                "limitation_reason": None,
+                "approval_status": "Unknown",
+                "ssrb_approval": None,
+                "board_approval": None,
+                "remaining_days": None,
+                "retrieved_at": datetime.now(timezone.utc).isoformat()
+            },
             "confidence": 0.75,
             "retrieved_at": datetime.now().isoformat(),
             "_mock": True
@@ -494,6 +525,7 @@ class DefectFactTool:
                 timeline=Timeline(**fact_dict["timeline"]),
                 clone_info=CloneInfo(**fact_dict["clone_info"]),
                 evidence=Evidence(**fact_dict["evidence"]),
+                limitation=fact_dict.get("limitation"),
                 confidence=fact_dict["confidence"],
                 source="mock"
             )

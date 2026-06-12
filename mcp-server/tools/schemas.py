@@ -184,6 +184,39 @@ class Evidence:
         }
 
 
+# ==================== Limitation 数据结构 ====================
+
+@dataclass
+class LimitationInfo:
+    """限制信息"""
+    defect_id: str
+    is_in_limitation: bool = False
+    limitation_type: Optional[str] = None  # "Temporary" / "Permanent"
+    limitation_start: Optional[str] = None  # ISO format datetime
+    limitation_end: Optional[str] = None  # ISO format datetime
+    limitation_reason: Optional[str] = None
+    approval_status: str = "Unknown"  # "Pending" / "Approved" / "Rejected"
+    ssrb_approval: Optional[Dict[str, Any]] = None
+    board_approval: Optional[Dict[str, Any]] = None
+    remaining_days: Optional[float] = None
+    retrieved_at: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "defect_id": self.defect_id,
+            "is_in_limitation": self.is_in_limitation,
+            "limitation_type": self.limitation_type,
+            "limitation_start": self.limitation_start,
+            "limitation_end": self.limitation_end,
+            "limitation_reason": self.limitation_reason,
+            "approval_status": self.approval_status,
+            "ssrb_approval": self.ssrb_approval,
+            "board_approval": self.board_approval,
+            "remaining_days": self.remaining_days,
+            "retrieved_at": self.retrieved_at
+        }
+
+
 # ==================== 核心缺陷事实 ====================
 
 @dataclass
@@ -212,6 +245,9 @@ class DefectFact:
     # 证据
     evidence: Evidence
 
+    # 限制信息
+    limitation: Optional[Dict[str, Any]] = None
+
     # 指标
     tci: float = 0.0  # Time-to-Close Index
     pfi: float = 0.0  # Platform-First Index
@@ -234,6 +270,7 @@ class DefectFact:
             "timeline": self.timeline.to_dict(),
             "clone_info": self.clone_info.to_dict(),
             "evidence": self.evidence.to_dict(),
+            "limitation": self.limitation,
             "tci": round(self.tci, 3),
             "pfi": round(self.pfi, 3),
             "confidence": round(self.confidence, 3),
