@@ -13,6 +13,16 @@ from .schemas import LimitationInfo, ConfidenceLevel
 
 load_env()
 
+# Limitation 相关状态
+LIMITATION_STATUSES = [
+    "Limitation",
+    "Limitation - Pending Approval",
+    "Limitation - Approved",
+    "Temporary Limitation",
+    "Permanent Limitation",
+    "Limitation - Deferred",
+]
+
 
 class LimitationTool:
     """
@@ -318,6 +328,239 @@ class LimitationTool:
             "ssrb_approval": None,
             "board_approval": None,
             "remaining_days": None,
+            "retrieved_at": datetime.now(timezone.utc).isoformat(),
+            "_mock": True
+        }
+
+    def get_limitation_records(self, defect_id: str) -> Dict[str, Any]:
+        """
+        获取缺陷的所有 limitation 记录（追溯 limitation 历史）
+
+        原则1: 原 defect defer 到下一项目，当前项目生成 limitation defect 记录
+        原则2: 通过 Issue Links 和 Summary 模式识别 limitation records
+        原则3: limitation 先后顺序按 issue key 数字大小排序
+
+        Args:
+            defect_id: JIRA Issue Key (原始缺陷 ID)
+
+        Returns:
+            包含所有 limitation 记录的字典
+        """
+        client = self._get_client()
+        if not client:
+            return self._get_mock_limitation_records(defect_id)
+
+        try:
+            # 方法1: 从 Issue Links 获取关联的 limitation defect
+            linked_limitations = self._get_linked_limitation_defects(client, defect_id)
+
+            # 方法2: 通过 JQL 搜索相同 summary pattern 的 limitation defect
+            similar_limitations = self._get_similar_limitation_defects(client, defect_id)
+
+            # 合并并按 issue key 排序
+            all_records = self._merge_and_sort_records(linked_limitations, similar_limitations)
+
+            # 计算每个 limitation 的时长
+            for record in all_records:
+                record["duration_days"] = self._calculate_duration(record)
+
+            return {
+                "original_defect_id": defect_id,
+                "total_limitation_records": len(all_records),
+                "limitation_records": all_records,
+                "retrieved_at": datetime.now(timezone.utc).isoformat()
+            }
+        except Exception:
+            return self._get_mock_limitation_records(defect_id)
+
+    def _get_linked_limitation_defects(self, client, defect_id: str) -> List[Dict[str, Any]]:
+        """从 Issue Links 获取关联的 limitation defect"""
+        records = []
+        try:
+            issue = client.issue(defect_id, expand='changelog')
+            f = issue.fields
+
+            # 检查 issuelinks
+            if hasattr(f, 'issuelinks'):
+                for link in f.issuelinks:
+                    # 处理不同类型的 link
+                    linked_key = None
+                    if hasattr(link, 'outwardIssue'):
+                        linked_key = link.outwardIssue.key
+                    elif hasattr(link, 'inwardIssue'):
+                        linked_key = link.inwardIssue.key
+
+                    if linked_key:
+                        # 检查 linked issue 是否是 limitation defect
+                        linked_issue = client.issue(linked_key)
+                        if self._is_limitation_defect(linked_issue, defect_id):
+                            records.append(self._extract_limitation_record(linked_issue, defect_id))
+        except Exception:
+            pass
+
+        return records
+
+    def _get_similar_limitation_defects(self, client, defect_id: str) -> List[Dict[str, Any]]:
+        """通过 JQL 搜索相同 description pattern 的 limitation defect"""
+        records = []
+        try:
+            # 提取 defect_id 中的数字部分作为搜索基础
+            import re
+            match = re.match(r'([A-Z]+)-(\d+)', defect_id)
+            if not match:
+                return records
+
+            project_prefix = match.group(1)
+            defect_num = match.group(2)
+
+            # 通过 description 搜索 temporary limitation record
+            jql_temporary = f'project = "{project_prefix}" AND description ~ "temporary limitation record for {defect_id}" ORDER BY created ASC'
+            issues_temporary = client.search_issues(jql_temporary, maxResults=100)
+
+            # 通过 description 搜索 permanent limitation record
+            jql_permanent = f'project = "{project_prefix}" AND description ~ "permanent limitation record for {defect_id}" ORDER BY created ASC'
+            issues_permanent = client.search_issues(jql_permanent, maxResults=100)
+
+            # 合并并去重
+            all_issues = {issue.key: issue for issue in issues_temporary + issues_permanent}
+
+            for issue in all_issues.values():
+                if self._is_limitation_defect(issue, defect_id):
+                    records.append(self._extract_limitation_record(issue, defect_id))
+        except Exception:
+            pass
+
+        return records
+
+    def _is_limitation_defect(self, issue, original_defect_id: str) -> bool:
+        """判断 issue 是否是 original_defect_id 的 limitation defect"""
+        f = issue.fields
+
+        # 检查状态是否是 Limitation 相关
+        if f.status.name not in LIMITATION_STATUSES:
+            return False
+
+        # 检查 description 是否包含原始 defect ID
+        desc = (f.description or "").lower()
+        if original_defect_id.lower() in desc:
+            return True
+
+        # 检查 summary 是否包含 "limitation" 关键词
+        summary = (f.summary or "").lower()
+        if "limitation" in summary and original_defect_id in f.summary:
+            return True
+
+        return False
+
+    def _extract_limitation_record(self, issue, original_defect_id: str) -> Dict[str, Any]:
+        """提取 limitation defect 的详细信息"""
+        f = issue.fields
+
+        # 计算 issue key 中的数字用于排序
+        import re
+        key_match = re.match(r'[A-Z]+-(\d+)', issue.key)
+        key_number = int(key_match.group(1)) if key_match else 0
+
+        return {
+            "limitation_defect_id": issue.key,
+            "key_number": key_number,
+            "summary": f.summary,
+            "status": f.status.name,
+            "limitation_type": self._extract_limitation_type_from_status(f.status.name),
+            "created": str(f.created) if f.created else None,
+            "updated": str(f.updated) if f.updated else None,
+            "resolution_date": str(f.resolutiondate) if hasattr(f, 'resolutiondate') and f.resolutiondate else None,
+            "original_defect_id": original_defect_id,
+            "labels": f.labels or [],
+            "description_snippet": (f.description or "")[:200] if f.description else None
+        }
+
+    def _extract_limitation_type_from_status(self, status: str) -> str:
+        """从状态名称提取 limitation 类型"""
+        status_lower = status.lower()
+        if "temporary" in status_lower:
+            return "Temporary"
+        if "permanent" in status_lower:
+            return "Permanent"
+        if "approved" in status_lower:
+            return "Approved"
+        if "pending" in status_lower:
+            return "Pending Approval"
+        return "Limitation"
+
+    def _merge_and_sort_records(
+        self,
+        linked_records: List[Dict[str, Any]],
+        similar_records: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """合并记录并按 key number 排序"""
+        # 使用 dict 去重，以 key 为准
+        records_dict = {}
+
+        for record in linked_records + similar_records:
+            key = record["limitation_defect_id"]
+            if key not in records_dict:
+                records_dict[key] = record
+
+        # 按 key_number 排序（数字小的在前 = 较早的 limitation）
+        sorted_records = sorted(records_dict.values(), key=lambda x: x["key_number"])
+
+        return sorted_records
+
+    def _calculate_duration(self, record: Dict[str, Any]) -> Optional[float]:
+        """计算 limitation 的持续天数"""
+        created = self._parse_datetime(record.get("created"))
+        resolved = self._parse_datetime(record.get("resolution_date"))
+
+        if not created:
+            return None
+
+        end_date = resolved if resolved else datetime.now(timezone.utc)
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+
+        duration = (end_date - created).total_seconds() / 86400
+        return round(duration, 1)
+
+    def _get_mock_limitation_records(self, defect_id: str) -> Dict[str, Any]:
+        """返回模拟 limitation 记录"""
+        import re
+        match = re.match(r'([A-Z]+)-(\d+)', defect_id)
+        project = match.group(1) if match else "OBMC"
+
+        return {
+            "original_defect_id": defect_id,
+            "total_limitation_records": 2,
+            "limitation_records": [
+                {
+                    "limitation_defect_id": f"{project}-25000",
+                    "key_number": 25000,
+                    "summary": f"[PA_BHS_Santorini_GNR] This is the temporary limitation record for defect {defect_id}.",
+                    "status": "Temporary Limitation",
+                    "limitation_type": "Temporary",
+                    "created": "2025-04-15T10:00:00.000-0400",
+                    "updated": "2026-06-01T14:30:00.000-0400",
+                    "resolution_date": None,
+                    "original_defect_id": defect_id,
+                    "labels": ["limitation", "limitation_temporary"],
+                    "description_snippet": f"This is the temporary limitation record for defect {defect_id}...",
+                    "duration_days": 423.2
+                },
+                {
+                    "limitation_defect_id": f"{project}-26000",
+                    "key_number": 26000,
+                    "summary": f"[PA_BHS_Santorini_GNR] This is the permanent limitation record for defect {defect_id}.",
+                    "status": "Permanent Limitation",
+                    "limitation_type": "Permanent",
+                    "created": "2026-06-01T14:30:00.000-0400",
+                    "updated": "2026-06-10T09:00:00.000-0400",
+                    "resolution_date": None,
+                    "original_defect_id": defect_id,
+                    "labels": ["limitation", "limitation_permanent"],
+                    "description_snippet": f"This is the permanent limitation record for defect {defect_id}...",
+                    "duration_days": 11.8
+                }
+            ],
             "retrieved_at": datetime.now(timezone.utc).isoformat(),
             "_mock": True
         }

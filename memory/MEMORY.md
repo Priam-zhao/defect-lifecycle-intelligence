@@ -13,6 +13,8 @@
 ## Architecture Reference
 - **Design Document**: `JIRA Defect Lifecycle Intelligence Platform.pdf`
 - **Version**: 4.0 (Knowledge Governance)
+- [limitation-data-integration.md](limitation-data-integration.md) — Limitation data extraction integration
+- [limitation-management-principles.md](limitation-management-principles.md) — Limitation tracking rules
 
 ## Claude Code Agent + Skill + MCP Architecture
 
