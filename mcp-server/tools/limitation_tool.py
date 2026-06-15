@@ -461,8 +461,16 @@ class LimitationTool:
         key_match = re.match(r'[A-Z]+-(\d+)', issue.key)
         key_number = int(key_match.group(1)) if key_match else 0
 
-        # 提取项目信息 (customfield_13803 包含具体版本项目名称)
-        project_name = self._extract_project_found(f)
+        # JIRA Project: 研发团队负责的项目 (如 OpenBMC)
+        jira_project = None
+        if hasattr(f, 'project') and f.project:
+            if hasattr(f.project, 'name'):
+                jira_project = f.project.name
+            elif isinstance(f.project, dict):
+                jira_project = f.project.get('name')
+
+        # Iteration Project: 实际迭代版本 (customfield_13803)
+        iteration_project = self._extract_project_found(f)
 
         return {
             "limitation_defect_id": issue.key,
@@ -470,7 +478,8 @@ class LimitationTool:
             "summary": f.summary,
             "status": f.status.name,
             "limitation_type": self._extract_limitation_type_from_status(f.status.name),
-            "project_found": project_name,  # 项目名称
+            "jira_project": jira_project,        # JIRA 项目（研发团队）
+            "iteration_project": iteration_project,  # 迭代项目
             "created": str(f.created) if f.created else None,
             "updated": str(f.updated) if f.updated else None,
             "resolution_date": str(f.resolutiondate) if hasattr(f, 'resolutiondate') and f.resolutiondate else None,
@@ -557,7 +566,8 @@ class LimitationTool:
                     "summary": f"[PA_BHS_Santorini_GNR] This is the temporary limitation record for defect {defect_id}.",
                     "status": "Temporary Limitation",
                     "limitation_type": "Temporary",
-                    "project_found": "[PA_BHS_Santorini_GNR] FW Agile Release 26-1",
+                    "jira_project": "OpenBMC",
+                    "iteration_project": "[9508] FW Agile Release 26-1",
                     "created": "2025-04-15T10:00:00.000-0400",
                     "updated": "2026-06-01T14:30:00.000-0400",
                     "resolution_date": None,
@@ -572,7 +582,8 @@ class LimitationTool:
                     "summary": f"[PA_BHS_Santorini_GNR] This is the permanent limitation record for defect {defect_id}.",
                     "status": "Permanent Limitation",
                     "limitation_type": "Permanent",
-                    "project_found": "[PA_BHS_Santorini_GNR] FW Agile Release 26-2",
+                    "jira_project": "OpenBMC",
+                    "iteration_project": "[9508] FW Agile Release 26-2",
                     "created": "2026-06-01T14:30:00.000-0400",
                     "updated": "2026-06-10T09:00:00.000-0400",
                     "resolution_date": None,
