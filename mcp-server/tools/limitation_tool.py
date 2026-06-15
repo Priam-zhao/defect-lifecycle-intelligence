@@ -461,12 +461,16 @@ class LimitationTool:
         key_match = re.match(r'[A-Z]+-(\d+)', issue.key)
         key_number = int(key_match.group(1)) if key_match else 0
 
+        # 提取项目信息 (customfield_13803 包含具体版本项目名称)
+        project_name = self._extract_project_found(f)
+
         return {
             "limitation_defect_id": issue.key,
             "key_number": key_number,
             "summary": f.summary,
             "status": f.status.name,
             "limitation_type": self._extract_limitation_type_from_status(f.status.name),
+            "project_found": project_name,  # 项目名称
             "created": str(f.created) if f.created else None,
             "updated": str(f.updated) if f.updated else None,
             "resolution_date": str(f.resolutiondate) if hasattr(f, 'resolutiondate') and f.resolutiondate else None,
@@ -474,6 +478,21 @@ class LimitationTool:
             "labels": f.labels or [],
             "description_snippet": (f.description or "")[:200] if f.description else None
         }
+
+    def _extract_project_found(self, fields) -> Optional[str]:
+        """提取 Project Found 字段 (customfield_13803)"""
+        import json
+
+        cf_13803 = getattr(fields, 'customfield_13803', None)
+        if not cf_13803:
+            return None
+
+        try:
+            # 解析 JSON 字符串 {"label": "...", "value": "..."}
+            data = json.loads(cf_13803)
+            return data.get('label')
+        except (json.JSONDecodeError, TypeError):
+            return str(cf_13803)
 
     def _extract_limitation_type_from_status(self, status: str) -> str:
         """从状态名称提取 limitation 类型"""
@@ -538,6 +557,7 @@ class LimitationTool:
                     "summary": f"[PA_BHS_Santorini_GNR] This is the temporary limitation record for defect {defect_id}.",
                     "status": "Temporary Limitation",
                     "limitation_type": "Temporary",
+                    "project_found": "[PA_BHS_Santorini_GNR] FW Agile Release 26-1",
                     "created": "2025-04-15T10:00:00.000-0400",
                     "updated": "2026-06-01T14:30:00.000-0400",
                     "resolution_date": None,
@@ -552,6 +572,7 @@ class LimitationTool:
                     "summary": f"[PA_BHS_Santorini_GNR] This is the permanent limitation record for defect {defect_id}.",
                     "status": "Permanent Limitation",
                     "limitation_type": "Permanent",
+                    "project_found": "[PA_BHS_Santorini_GNR] FW Agile Release 26-2",
                     "created": "2026-06-01T14:30:00.000-0400",
                     "updated": "2026-06-10T09:00:00.000-0400",
                     "resolution_date": None,
