@@ -20,32 +20,25 @@
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                     Agent Layer                              │
+│                                                              │
 │  ┌─────────────────────────────────────────────────────┐   │
 │  │            Orchestrator Agent                        │   │
 │  │  - 编排任务，协调其他 Agent                           │   │
 │  │  - 总结分析结果                                       │   │
 │  │  - 格式化输出                                        │   │
 │  └─────────────────────────────────────────────────────┘   │
-│       │                  │                  │              │
-│       ▼                  ▼                  ▼              │
-│  ┌─────────┐      ┌─────────┐      ┌─────────┐           │
-│  │  Fact   │      │ Review  │      │ Advisor │           │
-│  │  Agent  │      │  Agent  │      │  Agent  │           │
-│  └────┬────┘      └────┬────┘      └────┬────┘           │
-└───────┼────────────────┼────────────────┼─────────────────┘
-        │                │                │
-        ▼                ▼                ▼
-┌─────────────────────────────────────────────────────────────┐
-│                     Skill Layer                              │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐   │
-│  │ Extract  │  │  Review  │  │  Advise  │  │ Analyze  │   │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘   │
-└───────┼─────────────┼─────────────┼─────────────┼─────────┘
-        │                │                │             │
-        ▼                ▼                ▼             ▼
+│       │                                                    │
+│       ▼                                                    │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐     │
+│  │  Fact Agent │───▶│Review Agent │───▶│Advisor Agent│     │
+│  │             │    │Rule Engine  │    │3-Track Rec. │     │
+│  └──────┬──────┘    └─────────────┘    └─────────────┘     │
+└─────────┼─────────────────────────────────────────────────┘
+          │
+          ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                      MCP Layer                              │
-│  defect_fact_tool  review_tool  advisor_tool  orchestrator │
+│  defect_fact_tool  timeline_tool  tci_pfi_tool  ...        │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -74,13 +67,16 @@
 
 ## Skills
 
+> **Note**: Skills are used only for simplified parameter parsing. Main flow is always:
+> `User → Orchestrator Agent → [Fact/Review/Advisor] Agent → MCP Tools → JIRA`
+
 | Command | Description |
 |---------|-------------|
-| `/defect-extract` | Extract defect facts (Skill → Fact Agent → MCP) |
-| `/defect-review` | Review compliance (Skill → Review Agent → MCP) |
-| `/defect-advise` | Generate recommendations (Skill → Advisor Agent → MCP) |
-| `/defect-analyze` | Full pipeline (Skill → Orchestrator → All Agents) |
-| `/defect-batch` | Batch analyze multiple defects |
+| `/defect-extract` | Parse parameters → Orchestrator → Fact Agent |
+| `/defect-review` | Parse parameters → Orchestrator → Review Agent |
+| `/defect-advise` | Parse parameters → Orchestrator → Advisor Agent |
+| `/defect-analyze` | Parse parameters → Orchestrator → All Agents |
+| `/defect-batch` | Batch analysis via Orchestrator |
 
 ## Design Principles
 
