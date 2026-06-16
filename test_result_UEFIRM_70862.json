@@ -1,0 +1,211 @@
+{
+  "defect_id": "UEFIRM-70862",
+  "pipeline_fingerprint": "ddde152ee71cc69c",
+  "pipeline_version": "1.0.0",
+  "started_at": "2026-06-16T15:10:53.834782",
+  "status": "success",
+  "fact": {
+    "defect_id": "UEFIRM-70862",
+    "key": "UEFIRM-70862",
+    "summary": " \"ACPI errors\" in system logs with SR250V2& ST250V2",
+    "severity": "Medium",
+    "platform_found": "Trenton",
+    "project_found": "[9562] FW On-Demand Release 25C",
+    "priority": "Medium",
+    "status": "Closed",
+    "resolution": "Done",
+    "solution_explanation": "In the Intel reference code of Tatlow, once enabling the HWP, highest frequency will be reported up to OS via _CPC as below: \r\n------  \r\nStore(_SB.LMPS, DeRefOf(Index(CPC2,2)))\r\n\r\n------\r\n\r\nbut using DeRefOf seems not available for overriding data into package, it should be Index instead.",
+    "build_fixed": "TQE121C",
+    "root_cause": "If setting \"CPU P-state Control\" to Autonomous , customers will find these error messages from dmesg log in Redhat 9.2 or later versions.\r\n\r\n ACPI Error: Needed type [Reference], found [Buffer] 00000000ad729782 (20230331/exresop-66)\r\nACPI Error: AE_AML_OPERAND_TYPE, While resolving operands for [OpcodeName unavailable] (20230331/dswexec-433)\r\nACPI Error: Aborting method \\_SB.PR00._CPC due to previous error (AE_AML_OPERAND_TYPE) (20230331/psparse-529)",
+    "assignee": "Steve CY Hsu",
+    "reporter": "Jinzhu JZ10 Zhang",
+    "created": "2025-07-07T04:47:07.373-0400",
+    "updated": "2026-04-17T14:00:28.940-0400",
+    "resolved": "2025-07-20T23:01:59.000-0400",
+    "labels": [],
+    "components": [
+      "^uefi5.core.Tatlow.UEFI5"
+    ],
+    "timeline": {
+      "defect_id": "UEFIRM-70862",
+      "created": "2025-07-07T04:47:07.373000-04:00",
+      "status_changes": [],
+      "resolved": "2025-07-20T23:01:59-04:00",
+      "closed": "2025-07-20T23:01:59-04:00",
+      "duration_days": 13.8
+    },
+    "clone_info": {
+      "defect_id": "UEFIRM-70862",
+      "is_clone": false,
+      "parent_id": null,
+      "child_ids": [],
+      "clone_chain": [],
+      "clone_depth": 0
+    },
+    "evidence": {
+      "defect_id": "UEFIRM-70862",
+      "customer_impact": null,
+      "workaround_exists": {
+        "source": "comment",
+        "comment_id": "5229610",
+        "verified": true
+      },
+      "no_regression": null,
+      "root_cause_analysis": null,
+      "reproduction_steps": null,
+      "test_coverage": null,
+      "customer_visibility": null
+    },
+    "limitation": {
+      "defect_id": "UEFIRM-70862",
+      "is_in_limitation": false,
+      "limitation_type": null,
+      "limitation_start": null,
+      "limitation_end": null,
+      "limitation_reason": null,
+      "approval_status": "Unknown",
+      "ssrb_approval": null,
+      "board_approval": null,
+      "remaining_days": null,
+      "retrieved_at": "2026-06-16T07:10:56.628152+00:00"
+    },
+    "confidence": 0.55,
+    "retrieved_at": "2026-06-16T15:11:01.156897",
+    "tci": 0.541,
+    "tci_details": {
+      "actual_days": 13.76,
+      "expected_days": 30,
+      "method": "standard"
+    },
+    "pfi": 0.32,
+    "pfi_details": {
+      "root_cause_score": 0.5,
+      "fix_location_score": 0.4,
+      "component_score": 0.0
+    },
+    "anomalies": [
+      {
+        "type": "status_regression",
+        "severity": "medium",
+        "description": "Status regressed from Fixed to Working",
+        "at": "2025-07-10T15:03:14.985000"
+      },
+      {
+        "type": "status_regression",
+        "severity": "medium",
+        "description": "Status regressed from Fixed to Working",
+        "at": "2025-07-10T15:12:47.545000"
+      },
+      {
+        "type": "status_regression",
+        "severity": "medium",
+        "description": "Status regressed from Fixed to Working",
+        "at": "2025-07-16T17:01:10.808000"
+      }
+    ],
+    "anomaly_count": 3,
+    "has_critical_anomaly": false,
+    "similar_cases": [],
+    "similar_case_count": 0,
+    "confidence_level": "low"
+  },
+  "fact_status": "success",
+  "review": {
+    "defect_id": "UEFIRM-70862",
+    "decision": {
+      "decision_type": "PASS",
+      "defect_id": "UEFIRM-70862",
+      "confidence": 1.0,
+      "confidence_level": "high",
+      "evidence_links": [],
+      "reasoning": "No rules matched - default pass",
+      "triggered_rules": [],
+      "created_at": "2026-06-16T15:11:01.157010"
+    },
+    "limitation_evaluation": {
+      "decision_type": "PASS",
+      "defect_id": "UEFIRM-70862",
+      "confidence": 1.0,
+      "confidence_level": "high",
+      "evidence_links": [],
+      "reasoning": "No rules matched - default pass",
+      "triggered_rules": [],
+      "created_at": "2026-06-16T15:11:01.157010"
+    },
+    "closure_evaluation": {
+      "decision_type": "PASS",
+      "defect_id": "UEFIRM-70862",
+      "confidence": 1.0,
+      "confidence_level": "high",
+      "evidence_links": [],
+      "reasoning": "No rules matched - default pass",
+      "triggered_rules": [],
+      "created_at": "2026-06-16T15:11:01.157020"
+    },
+    "evidence_validation": {
+      "decision_type": "PASS",
+      "defect_id": "UEFIRM-70862",
+      "confidence": 1.0,
+      "confidence_level": "high",
+      "evidence_links": [],
+      "reasoning": "All required evidence present for PASS",
+      "triggered_rules": [],
+      "created_at": "2026-06-16T15:11:01.157043"
+    }
+  },
+  "review_status": "success",
+  "advisor": {
+    "defect_id": "UEFIRM-70862",
+    "recommendations": {
+      "defect_id": "UEFIRM-70862",
+      "preferred_path": {
+        "track_type": "preferred",
+        "summary": "标准流程处理",
+        "recommendations": [
+          {
+            "action": "Proceed with standard workflow - current status: Closed",
+            "rationale": "No special handling required.",
+            "priority": "medium",
+            "confidence": 0.95
+          },
+          {
+            "action": "Continue normal defect lifecycle management",
+            "rationale": "Defect follows standard path.",
+            "priority": "low",
+            "confidence": 0.9
+          }
+        ]
+      },
+      "alternative_path": {
+        "track_type": "alternative",
+        "summary": "优化处理效率",
+        "recommendations": [
+          {
+            "action": "Consider batch processing with similar defects",
+            "rationale": "Efficiency improvement for high-volume handling.",
+            "priority": "low",
+            "confidence": 0.85
+          }
+        ]
+      },
+      "escalation_path": {
+        "track_type": "escalation",
+        "summary": "监控潜在风险",
+        "recommendations": [
+          {
+            "action": "Monitor for status changes requiring attention",
+            "rationale": "Even PASS defects may develop issues.",
+            "priority": "low",
+            "confidence": 0.85
+          }
+        ]
+      },
+      "based_on_facts": true,
+      "based_on_review": true,
+      "created_at": "2026-06-16T15:11:01.157103"
+    }
+  },
+  "advisor_status": "success",
+  "completed_at": "2026-06-16T15:11:01.157121",
+  "duration_ms": 7322
+}

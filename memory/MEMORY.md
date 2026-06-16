@@ -37,13 +37,15 @@ New architecture using Claude Code native Agent + Skill + MCP:
 
 ## Implementation Status
 
-### ✅ Completed (as of 2026-06-15)
+### ✅ Completed (as of 2026-06-16)
 - **Agent Layer**: base.py, fact_agent.py, review_agent.py, advisor_agent.py, orchestrator.py, rule_engine.py
 - **Tests**: test_base.py, test_fact_agent.py, test_review_agent.py, test_advisor_agent.py, test_orchestrator.py, test_rule_engine.py
 - **Skills**: defect-extract, defect-review, defect-advise, defect-analyze, defect-batch
 - **MCP Layer**: defect_fact_tool.py, timeline_tool.py, tci_pfi_tool.py, limitation_tool.py, knowledge_tool.py, rules.json
 - **XCC-83683 Fix**: Added platform_found and project_found fields to defect extraction
+- **Real JIRA Integration**: Direct tool calls in BaseAgent enable real JIRA data without MCP server
 
 ### ⏳ Pending
-- Integration tests
+
+- Integration tests with real JIRA data
 - Mock tests with real JIRA data
