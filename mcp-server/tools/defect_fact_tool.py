@@ -162,11 +162,23 @@ class DefectFactTool:
         # 提取 Severity
         severity_value = self._extract_field_value(f, "customfield_10690")
 
-        # 提取 Platform
-        platform_value = self._extract_field_value(f, "customfield_xxxxx")
+        # 提取 Platform Found (customfield_17100)
+        platform_value = self._extract_field_value(f, "customfield_17100")
 
-        # 提取 Root Cause
-        root_cause_value = self._extract_field_value(f, "customfield_xxxxx")
+        # 提取 Project Found / Iteration Project (customfield_13725)
+        project_value = self._extract_field_value(f, "customfield_13725")
+
+        # 提取 Root Cause (from custom field)
+        root_cause_value = self._extract_field_value(f, "customfield_11106")
+
+        # 提取 Resolution
+        resolution_value = f.resolution.name if hasattr(f, 'resolution') and f.resolution else None
+
+        # 提取 Solution Explanation (customfield_11107)
+        solution_explanation = self._extract_field_value(f, "customfield_11107")
+
+        # 提取 Build Fixed (customfield_11112 - Build 版本号，如 IHX431T)
+        build_fixed = self._extract_field_value(f, "customfield_11112")
 
         # 构建时间线
         timeline = self._build_timeline(issue)
@@ -188,8 +200,14 @@ class DefectFactTool:
             "key": issue.key,
             "summary": f.summary or "",
             "severity": severity_value,
+            "platform_found": platform_value,
+            "project_found": project_value,
             "priority": f.priority.name if f.priority else "Unknown",
             "status": f.status.name if f.status else "Unknown",
+            "resolution": resolution_value,
+            "solution_explanation": solution_explanation,
+            "build_fixed": build_fixed,
+            "root_cause": root_cause_value,
             "assignee": f.assignee.displayName if f.assignee else None,
             "reporter": f.reporter.displayName if f.reporter else None,
             "created": str(f.created) if f.created else None,
@@ -197,8 +215,6 @@ class DefectFactTool:
             "resolved": str(f.resolutiondate) if hasattr(f, 'resolutiondate') and f.resolutiondate else None,
             "labels": f.labels or [],
             "components": [c.name for c in (f.components or [])],
-            "platform": platform_value,
-            "root_cause": root_cause_value,
             "timeline": timeline,
             "clone_info": clone_info,
             "evidence": evidence,
@@ -208,7 +224,9 @@ class DefectFactTool:
         }
 
     def _extract_field_value(self, fields, field_id: str) -> str:
-        """安全提取字段值"""
+        """安全提取字段值（支持 JSON 数组格式 {"label": "...", "value": "..."}）"""
+        import json
+
         if not hasattr(fields, field_id):
             return ""
 
@@ -217,11 +235,38 @@ class DefectFactTool:
             return ""
 
         if isinstance(value, str):
+            # 处理 JSON 格式 {"label": "...", "value": "..."}
+            if value.startswith('{') and value.endswith('}'):
+                try:
+                    data = json.loads(value)
+                    if 'label' in data:
+                        return data['label']
+                    elif 'value' in data:
+                        return data['value']
+                    return value
+                except json.JSONDecodeError:
+                    return value
+
+            # 处理 JSON 数组格式 [{"label": "...", "value": "..."}]
+            if value.startswith('[') and value.endswith(']'):
+                try:
+                    arr = json.loads(value)
+                    if isinstance(arr, list) and len(arr) > 0:
+                        item = arr[0]
+                        if isinstance(item, dict):
+                            if 'label' in item:
+                                return item['label']
+                            elif 'value' in item:
+                                return item['value']
+                        return str(item)
+                except json.JSONDecodeError:
+                    return value
+
             return value
         elif hasattr(value, 'value'):
             return value.value
         elif isinstance(value, dict):
-            return value.get('value', '')
+            return value.get('label', '')
         else:
             return str(value)
 
@@ -254,12 +299,20 @@ class DefectFactTool:
             if f.status.name in CLOSED_STATUSES:
                 closed = resolved
 
+        # 计算活跃天数
+        duration_days = None
+        if created:
+            end_date = resolved if resolved else datetime.now(timezone.utc)
+            duration_days = (end_date - created).total_seconds() / 86400
+            duration_days = round(duration_days, 1)
+
         return {
             "defect_id": issue.key,
             "created": created.isoformat() if created else None,
             "status_changes": status_changes,
             "resolved": resolved.isoformat() if resolved else None,
-            "closed": closed.isoformat() if closed else None
+            "closed": closed.isoformat() if closed else None,
+            "duration_days": duration_days
         }
 
     def _build_clone_info(self, issue) -> Dict[str, Any]:

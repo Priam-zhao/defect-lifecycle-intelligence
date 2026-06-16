@@ -339,12 +339,13 @@ class LimitationTool:
         原则1: 原 defect defer 到下一项目，当前项目生成 limitation defect 记录
         原则2: 通过 Issue Links 和 Summary 模式识别 limitation records
         原则3: limitation 先后顺序按 issue key 数字大小排序
+        原则4: 按 link_type 和时间排序
 
         Args:
             defect_id: JIRA Issue Key (原始缺陷 ID)
 
         Returns:
-            包含所有 limitation 记录的字典
+            包含所有 limitation 记录的字典，按类型和时间排序
         """
         client = self._get_client()
         if not client:
@@ -357,17 +358,24 @@ class LimitationTool:
             # 方法2: 通过 JQL 搜索相同 summary pattern 的 limitation defect
             similar_limitations = self._get_similar_limitation_defects(client, defect_id)
 
-            # 合并并按 issue key 排序
+            # 合并并按 key_number 排序
             all_records = self._merge_and_sort_records(linked_limitations, similar_limitations)
 
             # 计算每个 limitation 的时长
             for record in all_records:
                 record["duration_days"] = self._calculate_duration(record)
 
+            # 按 link_type 和 key_number 排序
+            sorted_records = self._sort_by_link_type_and_time(all_records)
+
+            # 按 link_type 分组
+            grouped_by_type = self._group_by_link_type(sorted_records)
+
             return {
                 "original_defect_id": defect_id,
-                "total_limitation_records": len(all_records),
-                "limitation_records": all_records,
+                "total_limitation_records": len(sorted_records),
+                "limitation_records": sorted_records,
+                "grouped_by_link_type": grouped_by_type,
                 "retrieved_at": datetime.now(timezone.utc).isoformat()
             }
         except Exception:
@@ -385,16 +393,35 @@ class LimitationTool:
                 for link in f.issuelinks:
                     # 处理不同类型的 link
                     linked_key = None
+                    link_type = None
+
                     if hasattr(link, 'outwardIssue'):
                         linked_key = link.outwardIssue.key
+                        # 获取 outward link 类型 (如 "Resolves", "Relates", "Duplicate")
+                        link_type = getattr(link, 'type', None)
+                        if link_type and hasattr(link_type, 'name'):
+                            link_type = link_type.name
+                        elif link_type and isinstance(link_type, dict):
+                            link_type = link_type.get('name')
                     elif hasattr(link, 'inwardIssue'):
                         linked_key = link.inwardIssue.key
+                        # 获取 inward link 类型
+                        link_type = getattr(link, 'type', None)
+                        if link_type and hasattr(link_type, 'name'):
+                            link_type = link_type.name
+                        elif link_type and isinstance(link_type, dict):
+                            link_type = link_type.get('name')
+                        # Inward link 的 name 可能是 "Resolved by"，需要转换方向
+                        if link_type == "Resolved by":
+                            link_type = "Resolves"
 
                     if linked_key:
                         # 检查 linked issue 是否是 limitation defect
                         linked_issue = client.issue(linked_key)
                         if self._is_limitation_defect(linked_issue, defect_id):
-                            records.append(self._extract_limitation_record(linked_issue, defect_id))
+                            record = self._extract_limitation_record(linked_issue, defect_id)
+                            record["link_type"] = link_type
+                            records.append(record)
         except Exception:
             pass
 
@@ -426,7 +453,10 @@ class LimitationTool:
 
             for issue in all_issues.values():
                 if self._is_limitation_defect(issue, defect_id):
-                    records.append(self._extract_limitation_record(issue, defect_id))
+                    record = self._extract_limitation_record(issue, defect_id)
+                    # JQL 搜索找到的记录，link_type 标记为通过 description 匹配找到
+                    record["link_type"] = "Description Match"
+                    records.append(record)
         except Exception:
             pass
 
@@ -535,6 +565,42 @@ class LimitationTool:
 
         return sorted_records
 
+    def _sort_by_link_type_and_time(self, records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        按 link_type 和时间排序
+
+        排序规则:
+        1. Resolves (outward) > Description Match > Relates > Duplicate > 其他
+        2. 同类型按 key_number 排序
+        """
+        # link_type 优先级 (数字越小优先级越高)
+        link_type_priority = {
+            "Resolves": 1,         # 主链路 defer 出去的 limitation
+            "Description Match": 2, # JQL 搜索匹配到的 limitation
+            "Relates": 3,          # 相关联
+            "Duplicate": 4,         # 相同 root cause
+            "Is duplicate of": 4,
+            "Resolved by": 5,       # 被其他解决
+        }
+
+        def sort_key(record: Dict[str, Any]) -> tuple:
+            link_type = record.get("link_type", "Unknown")
+            priority = link_type_priority.get(link_type, 99)
+            key_number = record.get("key_number", 0)
+            return (priority, key_number)
+
+        return sorted(records, key=sort_key)
+
+    def _group_by_link_type(self, records: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
+        """按 link_type 分组"""
+        grouped = {}
+        for record in records:
+            link_type = record.get("link_type", "Unknown")
+            if link_type not in grouped:
+                grouped[link_type] = []
+            grouped[link_type].append(record)
+        return grouped
+
     def _calculate_duration(self, record: Dict[str, Any]) -> Optional[float]:
         """计算 limitation 的持续天数"""
         created = self._parse_datetime(record.get("created"))
@@ -556,43 +622,50 @@ class LimitationTool:
         match = re.match(r'([A-Z]+)-(\d+)', defect_id)
         project = match.group(1) if match else "OBMC"
 
+        records = [
+            {
+                "limitation_defect_id": f"{project}-25000",
+                "key_number": 25000,
+                "link_type": "Resolves",
+                "summary": f"[PA_BHS_Santorini_GNR] This is the temporary limitation record for defect {defect_id}.",
+                "status": "Temporary Limitation",
+                "limitation_type": "Temporary",
+                "jira_project": "OpenBMC",
+                "iteration_project": "[9508] FW Agile Release 26-1",
+                "created": "2025-04-15T10:00:00.000-0400",
+                "updated": "2026-06-01T14:30:00.000-0400",
+                "resolution_date": None,
+                "original_defect_id": defect_id,
+                "labels": ["limitation", "limitation_temporary"],
+                "description_snippet": f"This is the temporary limitation record for defect {defect_id}...",
+                "duration_days": 423.2
+            },
+            {
+                "limitation_defect_id": f"{project}-26000",
+                "key_number": 26000,
+                "link_type": "Relates",
+                "summary": f"[PA_BHS_Santorini_GNR] This is the permanent limitation record for defect {defect_id}.",
+                "status": "Permanent Limitation",
+                "limitation_type": "Permanent",
+                "jira_project": "OpenBMC",
+                "iteration_project": "[9508] FW Agile Release 26-2",
+                "created": "2026-06-01T14:30:00.000-0400",
+                "updated": "2026-06-10T09:00:00.000-0400",
+                "resolution_date": None,
+                "original_defect_id": defect_id,
+                "labels": ["limitation", "limitation_permanent"],
+                "description_snippet": f"This is the permanent limitation record for defect {defect_id}...",
+                "duration_days": 11.8
+            }
+        ]
+
+        grouped = self._group_by_link_type(records)
+
         return {
             "original_defect_id": defect_id,
-            "total_limitation_records": 2,
-            "limitation_records": [
-                {
-                    "limitation_defect_id": f"{project}-25000",
-                    "key_number": 25000,
-                    "summary": f"[PA_BHS_Santorini_GNR] This is the temporary limitation record for defect {defect_id}.",
-                    "status": "Temporary Limitation",
-                    "limitation_type": "Temporary",
-                    "jira_project": "OpenBMC",
-                    "iteration_project": "[9508] FW Agile Release 26-1",
-                    "created": "2025-04-15T10:00:00.000-0400",
-                    "updated": "2026-06-01T14:30:00.000-0400",
-                    "resolution_date": None,
-                    "original_defect_id": defect_id,
-                    "labels": ["limitation", "limitation_temporary"],
-                    "description_snippet": f"This is the temporary limitation record for defect {defect_id}...",
-                    "duration_days": 423.2
-                },
-                {
-                    "limitation_defect_id": f"{project}-26000",
-                    "key_number": 26000,
-                    "summary": f"[PA_BHS_Santorini_GNR] This is the permanent limitation record for defect {defect_id}.",
-                    "status": "Permanent Limitation",
-                    "limitation_type": "Permanent",
-                    "jira_project": "OpenBMC",
-                    "iteration_project": "[9508] FW Agile Release 26-2",
-                    "created": "2026-06-01T14:30:00.000-0400",
-                    "updated": "2026-06-10T09:00:00.000-0400",
-                    "resolution_date": None,
-                    "original_defect_id": defect_id,
-                    "labels": ["limitation", "limitation_permanent"],
-                    "description_snippet": f"This is the permanent limitation record for defect {defect_id}...",
-                    "duration_days": 11.8
-                }
-            ],
+            "total_limitation_records": len(records),
+            "limitation_records": records,
+            "grouped_by_link_type": grouped,
             "retrieved_at": datetime.now(timezone.utc).isoformat(),
             "_mock": True
         }
